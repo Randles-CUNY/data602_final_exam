@@ -1,0 +1,375 @@
+---
+title: "DATA605 - Final Exam"
+author: "Leland Randles"
+date: "December 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br></br>
+
+**Your final is due by the end of day on 12/20/2017. You should post your solutions to your GitHub account. This project will show off your ability to understand the elements of the class.**  
+
+**You are to register for Kaggle.com (free) and compete in the House Prices: Advanced Regression Techniques competition (<https://www.kaggle.com/c/house-prices-advanced-regression-techniques>). I want you to do the following.**  
+
+## Outline
+
+* [Load Data and Packages](#load-data-and-packages)
+* [Probability](#probability)
+* [Descriptive and Inferential Statistics](#descriptive-and-inferential-statistics)
+* [Linear Algebra and Correlation](#linear-algebra-and-correlation)
+* [Calculus Based Probability & Statistics](#calculus-based-probability-and-statistics)
+* [Modeling](#modeling)  
+
+### Load Data and Packages  
+
+I downloaded the datasets from Kaggle and saved them to my GitHub repository for the final exam (<https://github.com/Randles-CUNY/data602_final_exam>. Follow the links below to see the files:  
+
+* train.csv - housing characteristics data (<https://raw.githubusercontent.com/Randles-CUNY/data602_final_exam/master/train.csv>)
+* test.csv - test data set to use for prediction submitted to Kaggle.com (<https://github.com/Randles-CUNY/data602_final_exam/blob/master/test.csv>)
+* data_description.txt - data dictionary for housing prices data set (<https://github.com/Randles-CUNY/data602_final_exam/blob/master/data_description.txt>)  
+
+In the code below, the train.csv data is read into R and loaded into a data frame called `hp_raw_df`. In addition, the following packages are installed and loaded:  
+
+* ggplot2 - for plotting
+* MASS - for boxcox function and fitdistr function
+* caret - for preProcess function
+
+```{r results='hide', message=FALSE, warning=FALSE}
+install.packages("ggplot2", repos='https://mirrors.nics.utk.edu/cran/')
+library(ggplot2)
+install.packages("MASS", repos='https://mirrors.nics.utk.edu/cran/')
+library(MASS)
+install.packages("caret", repos='https://mirrors.nics.utk.edu/cran/')
+library(caret)
+hp_raw_df <- read.csv("https://raw.githubusercontent.com/Randles-CUNY/data602_final_exam/master/train.csv", colClasses = c("integer", "integer", "character", "integer", "integer", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "integer", "integer", "integer", "integer", "character", "character", "character", "character", "character", "integer", "character", "character", "character", "character", "character", "character", "character", "integer", "character", "integer", "integer", "integer", "character", "character", "character", "character", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "character", "integer", "character", "integer", "character", "character", "integer", "character", "integer", "integer", "character", "character", "character", "integer", "integer", "integer", "integer", "integer", "integer", "character", "character", "character", "integer", "integer", "integer", "character", "character", "integer"), header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+
+<br></br>
+
+### Probability
+
+**Pick one of the quantitative independent variables from the training data set (train.csv), and define that variable as $x$. Pick `SalePrice` as the dependent variable, and define it as $Y$ for the next analysis.**  
+
+**Probability. Calculate as a minimum the below probabilities $a$ through $c$. Assume the small letter $x$ is estimated as the 1st quartile of the $X$ variable, and the small letter $y$ is estimated as the 2nd quartile of the $Y$ variable. Interpret the meaning of all probabilities.**  
+
+<br></br>
+
+I chose `LotArea` (lot size in square feet) as independent variable *X*. There are no `NA` values for `LotArea` or `SalePrice`. Taking a quick look at histograms for both, we can see they are approximately normal with some positive skew and some extreme right-tail outliers:
+
+```{r la_sp, fig.width=10.5, fig.height=6.5}
+# histograms for LotArea and SalePrice
+ggplot(hp_raw_df, aes(LotArea)) + geom_histogram(binwidth = 500, color="royalblue2") + scale_x_continuous(labels = scales::comma)
+ggplot(hp_raw_df, aes(SalePrice)) + geom_histogram(binwidth = 2000, color="maroon") + scale_x_continuous(labels = scales::comma)
+# set x and y for problems a thru c
+x <- hp_raw_df$LotArea
+y <- hp_raw_df$SalePrice
+# set the 1st quartile threshold for x variable
+x_1q <- quantile(x, probs = 0.25)
+# set the 2nd quartile threshold for y variable
+y_2q <- quantile(y, probs = 0.5)
+```
+
+<br></br>
+
+$a. P(X>x | Y>y)$  
+
+This is probability that the LotArea ($X$) is greater than the 1st quartile cut-off for LotArea given that the SalePrice ($Y$) is greater than the 2nd quartile cut-off for SalePrice.  
+
+```{r p_a}
+# Is computed by taking P(X > x and Y > y) divided by P(Y > y)
+# Probability P(X > x and Y > y)
+p1 <- nrow(subset(hp_raw_df, hp_raw_df$LotArea > x_1q & hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+# Probability P(Y > y)
+p2 <- nrow(subset(hp_raw_df, hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+# Probability P(X > x and Y > y) divided by P(Y > y)
+p1 / p2
+```
+
+<br></br>
+
+$b. P(X>x \; \& \; Y>y)$  
+
+This is the probability that the LotArea ($X$) is greater than the 1st quartile cut-off for LotArea and the SalePrice ($Y$) is greater than the 2nd quartile cut-off for SalePrice.  
+
+```{r p_b}
+# number of rows where both P(X > x) and P(Y > y)
+p <- nrow(subset(hp_raw_df, hp_raw_df$LotArea > x_1q & hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+p
+```
+
+<br></br>
+
+$c. P(X<x | Y>y)$
+
+This is probability that the LotArea ($X$) is less than the 1st quartile cut-off for LotArea given that the SalePrice ($Y$) is greater than the 2nd quartile cut-off for SalePrice.  
+
+```{r p_c}
+# Is computed by taking P(X < x and Y > y) divided by P(Y > y)
+# Probability P(X > x and Y > y)
+p1 <- nrow(subset(hp_raw_df, hp_raw_df$LotArea < x_1q & hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+# Probability P(Y > y)
+p2 <- nrow(subset(hp_raw_df, hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+# Probability P(X > x and Y > y) divided by P(Y > y)
+p1 / p2
+```
+
+<br></br>
+
+**Does splitting the training data in this fashion make them independent? In other words, does $P(XY) = P(X)P(Y)$? Check mathematically, and then evaluate by running a Chi Square test for association. You might have to research this.**  
+
+```{r p_chk_math}
+# probability of X and Y using problem a
+pxy <- nrow(subset(hp_raw_df, hp_raw_df$LotArea > x_1q & hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+pxy
+# probability of X using problem a
+px <- nrow(subset(hp_raw_df, hp_raw_df$LotArea > x_1q)) / nrow(hp_raw_df)
+# probability of Y using problem a
+py <- nrow(subset(hp_raw_df, hp_raw_df$SalePrice > y_2q)) / nrow(hp_raw_df)
+# P(X)P(Y)
+px * py
+# check if P(XY) = P(X)P(Y) - can see above that is does not
+pxy == px * py
+```  
+
+As you can see above, splitting data in this fashion does not make $X$ and $Y$ independent. The fact that we can take observations and subset them doesn't determine whether the probability of one event occurring affects the probability of a different event occurring. Below are two Chi square tests for association. The first uses the actual values. You'll note we get a `Warning message: Chi-squared approximation may be incorrect`. This is because many of the expected values are very small and therefore the approximations of p may not be right. Chi squared is usually used for categorizations and we're using it for two numerical variables. This means we're getting a very large contingency table. 
+
+The 2nd Chi square test uses quintile bins for both `LotArea` and `SalePrice`, which brings the contingency table down to a size which doesn't generate the warning. In both cases, the test is generating very strong p-values.  
+
+```{r chisq}
+# Chi square test using actual values
+chisqtbl <- table(hp_raw_df$LotArea, hp_raw_df$SalePrice)
+chisq.test(chisqtbl)
+# using quintile bins
+# add column la_quintile for LotArea quintile bin
+hp_raw_df <- within(hp_raw_df, la_quintile <- as.integer(cut(hp_raw_df$LotArea, quantile(hp_raw_df$LotArea, probs=0:10/10), include.lowest=TRUE)))
+# add column sp_quintile for SalePrice quintile bin
+hp_raw_df <- within(hp_raw_df, sp_quintile <- as.integer(cut(hp_raw_df$SalePrice, quantile(hp_raw_df$SalePrice, probs=0:10/10), include.lowest=TRUE)))
+# Chi square test using quintile bin values
+chisqtbl <- table(hp_raw_df$la_quintile, hp_raw_df$sp_quintile)
+chisq.test(chisqtbl)
+# no warning
+```
+
+<br></br>
+
+### Descriptive and Inferential Statistics
+
+**Provide univariate descriptive statistics and appropriate plots for both variables. Provide a scatterplot of $X$ and $Y$. Transform both variables simultaneously using Box-Cox transformations. You might have to research this.**  
+
+<br></br>
+
+Here are summary descriptive statistics for `LotArea` and `SalePrice` to supplment the Histograms from the prior section. Both also suggest positive skewness:
+
+```{r dis1}
+summary(hp_raw_df$LotArea)
+summary(hp_raw_df$SalePrice)
+```
+
+Here is a scatterplot of `LotArea` and `SalePrice`:
+
+```{r dis2_s1, fig.width=10.5, fig.height=6.5}
+ggplot(hp_raw_df, aes(x = hp_raw_df$LotArea, y = hp_raw_df$SalePrice)) + geom_point(color='royalblue2') + labs(title = "Lot Area vs. Sale Price", x = "Lot Area", y = "Sale Price") + scale_y_continuous(labels = scales::comma)
+```  
+
+It certainly looks like the variables are correlated, though the scatterplot is affected by some outlying `LotArea` values. Below is another scatterplot which excludes `LotArea` values in the top (10th) quintile:  
+
+```{r dis2_s2, fig.width=10.5, fig.height=6.5}
+hp_raw_df_no <- subset(hp_raw_df, hp_raw_df$la_quintile < 10)
+ggplot(hp_raw_df_no, aes(x = hp_raw_df_no$LotArea, y = hp_raw_df_no$SalePrice)) + geom_point(color='maroon') + labs(title = "Lot Area vs. Sale Price", x = "Lot Area", y = "Sale Price") + scale_y_continuous(labels = scales::comma)
+```  
+
+Box-Cox transformation:
+
+```{r dis3, fig.width=10.5, fig.height=6.5}
+# create subset of LotArea/SalePrice and use preProcess to estimate desired lambda
+hp_raw_df_subset <- subset(hp_raw_df, select = c("LotArea", "SalePrice"))
+bcl <- preProcess(hp_raw_df_subset, method = "BoxCox")
+bcl$bc
+# result of preProcess shows default -2 to 2 for lambda fine for boxcox function
+# x was set to LotArea and y was set to SalePrice previously in Probability section
+# box cox transformation created below
+bc <- boxcox(y ~ x)
+```  
+
+The Boxcox plot shows normality, and the lambdas are near the values suggested by the preProcess function.  
+
+<br></br>
+
+### Linear Algebra and Correlation
+
+**Using at least three untransformed variables, build a correlation matrix. Invert your correlation matrix. (This is known as the precision matrix and contains variance inflation factors on the diagonal.) Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix.**  
+
+<br></br>
+
+Below I build a correlation matrix which includes the following untransformed variables:
+
+* OverallCond: Rates the overall condition of the house
+* TotalBsmtSF: Total square feet of basement area
+* X1stFlrSF: First Floor square feet
+* TotRmsAbvGrd: Total rooms above grade
+* SalePrice: Sale Price is dollars  
+
+```{r lac1}
+# create correlation matrix
+cm <- cor(hp_raw_df[c("OverallCond","TotalBsmtSF", "X1stFlrSF", "TotRmsAbvGrd", "SalePrice")])
+cm
+```  
+
+Then, I invert the correlation matrix to create the precision matrix:  
+
+```{r lac2}
+# create inverted matrix
+im <- solve(cm)
+im
+```
+
+Lastly, I multiply the correlation matrix by the precision matrix and the precision matrix by the correlation matrix (rounding to 15 digits to remove R's decimilization at the extremes).    
+
+```{r lac3}
+round(cm %*% im, 15)
+round(im %*% cm, 15)
+```  
+
+The result in both cases is the identity matrix.
+
+<br></br>
+
+### Calculus Based Probability and Statistics
+
+**Many times, it makes sense to fit a closed form distribution to data. For your non-transformed independent variable, location shift (if necessary) it so that the minimum value is above zero. Then load the MASS package and run fitdistr to fit a density function of your choice.  (See https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html). Find the optimal value of the parameters for this distribution, and then take 1000 samples from this distribution (e.g., rexp(1000, $\lambda$) for an exponential). Plot a histogram and compare it with a histogram of your non-transformed original variable.**  
+
+I chose to fit to a normal distribution using the log-normal distribution (because the skew):
+
+```{r cbpas}
+# fit normal distribution
+fd <- fitdistr(hp_raw_df$LotArea, "lognormal")
+# optimal value of mean and sd
+fd$estimate
+# 1000 samples from this distribution
+r <- rnorm(1000, fd$estimate[1], fd$estimate[2])
+# Plot a histogram using 1000 samples
+hist(r, freq = FALSE, breaks = 50, col = "royalblue2", main = "Histogram of 1000 Samples", xlab="Log of Lot Area (Square Feet)")
+# Plot a histogram using original variable
+hist(log(hp_raw_df$LotArea), breaks = 50, col = "maroon", freq = FALSE, main = "Histogram of Log of Lot Area", xlab="Square Feet")
+```
+
+The two histograms are quite similar, except the histogram based on the log-normal distribution is fatter in the middle.  
+
+<br></br>
+
+### Modeling
+
+**Build some type of regression model and submit your model to the competition board. Provide your complete model summary and results with analysis. Report your Kaggle.com user name and score.**  
+
+For my linear regression model, I decided to start with the following predictor variables. I chose these variables because they had complete, clean data and/or did not have a lot of default values:  
+
+* logLotArea (log of LotArea): Log transformation of Lot size in square feet
+* OverallQual: Rates the overall material and finish of the house
+* OverallCond: Rates the overall condition of the house
+* YearBuilt: Original construction date
+* TotalBsmtSF: Total square feet of basement area
+* X1stFlrSF: First Floor square feet
+* GrLivArea: Above grade (ground) living area square feet
+* BsmtFullBath: Basement full bathrooms
+* BsmtHalfBath: Basement half bathrooms
+* FullBath: Full bathrooms above grade
+* HalfBath: Half baths above grade
+* GarageCars: Size of garage in car capacity
+* GarageArea: Size of garage in square feet
+* StreetScore: Gravel = 0, Paved = 1
+* CentralAirScore: Does not have A/C = 0, does have A/C = 1
+* BedroomAbvGr: Bedrooms above grade (does NOT include basement bedrooms)
+* KitchenAbvGr: Kitchens above grade
+* TotRmsAbvGrd: Total rooms above grade (does not include bathrooms)
+
+I used the log of `LotArea` (`logLotArea`) based on the skew exhibited in analyses from the prior sections. Similarly, I am using the log of `SalePrice` (`logSalePrice`) as my dependent variable. The `StreetScore` and `CentralAirScore` are dummy variables derived from categorical values.  
+
+In the code below, I am creating the log transformations, the dummy varables, and then generating pairwise comparisons (6 variables at a time) for the selected variables vs. logSalePrice:  
+
+```{r pairwise, fig.width=10.5, fig.height=6.5}
+# create logLotArea and logSalePrice
+hp_raw_df$logLotArea <- log(hp_raw_df$LotArea)
+hp_raw_df$logSalePrice <- log(hp_raw_df$SalePrice)
+# add central air dummy variable (0 = no Central Air, 1 = Central Air)
+hp_raw_df$CentralAirScore <- ifelse(hp_raw_df$CentralAir == "N", 0, 1)
+# add street dummy variable (0 = gravel, 1 = paved)
+hp_raw_df$StreetScore <- ifelse(hp_raw_df$Street == "Grvl", 0, 1)
+# first pairwise comparison
+pairs(subset(hp_raw_df, select = c("logLotArea", "OverallQual", "OverallCond", "YearBuilt", "TotalBsmtSF", "X1stFlrSF", "logSalePrice")), gap = 0.5)
+# second pairwise comparison
+pairs(subset(hp_raw_df, select = c("GrLivArea", "BsmtFullBath", "BsmtHalfBath", "FullBath", "HalfBath", "GarageCars", "logSalePrice")), gap = 0.5)
+# third pairwise comparison
+pairs(subset(hp_raw_df, select = c("GarageArea", "StreetScore", "CentralAirScore", "BedroomAbvGr", "KitchenAbvGr", "TotRmsAbvGrd", "logSalePrice")), gap = 0.5)
+```  
+
+Looking at the pairwise plots, I did not readily identify other variables which need transformation.  
+
+Next, I created a linear model with all 18 variables and then whittled down the predictors using backward elimination:  
+
+```{r backward_elim}
+#initial model
+sp.lm <- lm(logSalePrice ~ logLotArea + OverallQual + OverallCond + YearBuilt + TotalBsmtSF + X1stFlrSF + GrLivArea + BsmtFullBath + BsmtHalfBath + FullBath + HalfBath + GarageCars + GarageArea + StreetScore + CentralAirScore + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd, data = hp_raw_df)
+# summary of model
+summary(sp.lm)
+# iteration 2 with GarageArea taken out
+sp.lm <- update(sp.lm, .~. - GarageArea, data = hp_raw_df)
+# summary of model
+summary(sp.lm)
+# iteration 3 with BsmtHalfBath taken out
+sp.lm <- update(sp.lm, .~. - BsmtHalfBath, data = hp_raw_df)
+# summary of model
+summary(sp.lm)
+# now all predictors have p values < 0.05
+sp.lm$coefficients
+# build function for regression model
+sp.lm_equation <- function(logLotArea, OverallQual, OverallCond, YearBuilt, TotalBsmtSF, X1stFlrSF, GrLivArea, BsmtFullBath, FullBath, HalfBath, GarageCars, StreetScore, CentralAirScore, BedroomAbvGr, KitchenAbvGr, TotRmsAbvGrd) { (3.99764 + (0.1054207 * logLotArea) + (0.09091124 * OverallQual) + (0.05161414 * OverallCond) + (0.00273643 * YearBuilt) + (0.00006091755 * TotalBsmtSF) + (0.00004595251 * X1stFlrSF) + (0.0001621374 * GrLivArea) + (0.07129873 * BsmtFullBath) + (0.05102093 * FullBath) + (0.03153424 * HalfBath) + (0.07158917 * GarageCars) + (0.1939375 * StreetScore) + (0.07929492 * CentralAirScore) + (-0.01666465 * BedroomAbvGr) + (-0.09942732 * KitchenAbvGr) + (0.01560008 * TotRmsAbvGrd)) }
+```
+
+The linear regression equation is as follows:
+
+logSalePrice = 3.99764 + (0.1054207 \* logLotArea) + (0.09091124 \* OverallQual) + (0.05161414 \* OverallCond) + (0.00273643 \* YearBuilt) + (0.00006091755 \* TotalBsmtSF) + (0.00004595251 \* X1stFlrSF) + (0.0001621374 \* GrLivArea) + (0.07129873 \* BsmtFullBath) + (0.05102093 \* FullBath) + (0.03153424 \* HalfBath) + (0.07158917 \* GarageCars) + (0.1939375 \* StreetScore) + (0.07929492 \* CentralAirScore) + (-0.01666465 \* BedroomAbvGr) + (-0.09942732 \* KitchenAbvGr) + (0.01560008 \* TotRmsAbvGrd)
+
+Having constructed a model where all p-values are below 0.05, I looked the residual plot and Q-Q plot:  
+
+```{r res_qq}
+# residual plot
+plot(fitted(sp.lm), resid(sp.lm), col = "royalblue2")
+# q-q plot
+qqnorm(sp.lm$residuals, col = "maroon")
+qqline(sp.lm$residuals)
+```  
+
+The residual plot is acceptable, but he Q-Q plot is heavily tailed. This is not necessarily a surprise because throughout each stage of the backward elimination process, as the model was evaluated, the residuals, though fairly centered in terms of mean and quartiles, exhibited skew on the minimum end. We can see that in the residual plot in that there are two huge outliers and there appear to be sligtly more plots below zero than above zero.  
+
+Next, I read in the test data and used the linear regression model to predict `logSalePrice`, which was then tranformed back to `SalePrice`:    
+
+```{r load_test}
+# load data from csv
+hp_test_df <- read.csv("https://raw.githubusercontent.com/Randles-CUNY/data602_final_exam/master/test.csv", colClasses = c("integer", "integer", "character", "integer", "integer", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "integer", "integer", "integer", "integer", "character", "character", "character", "character", "character", "integer", "character", "character", "character", "character", "character", "character", "character", "integer", "character", "integer", "integer", "integer", "character", "character", "character", "character", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "integer", "character", "integer", "character", "integer", "character", "character", "integer", "character", "integer", "integer", "character", "character", "character", "integer", "integer", "integer", "integer", "integer", "integer", "character", "character", "character", "integer", "integer", "integer", "character", "character"), header = TRUE, sep = ",", stringsAsFactors = FALSE)
+# add central air dummy variable (0 = no Central Air, 1 = Central Air)
+hp_test_df$CentralAirScore <- ifelse(hp_test_df$CentralAir == "N", 0, 1)
+# add street dummy variable (0 = gravel, 1 = paved)
+hp_test_df$StreetScore <- ifelse(hp_test_df$Street == "Grvl", 0, 1)
+# add logLotArea
+hp_test_df$logLotArea <- log(hp_test_df$LotArea)
+# predict logSalePrice using the test data and linear regression model
+sp.lm_predicted <- sp.lm_equation(hp_test_df$logLotArea, hp_test_df$OverallQual, hp_test_df$OverallCond, hp_test_df$YearBuilt, hp_test_df$TotalBsmtSF, hp_test_df$X1stFlrSF, hp_test_df$GrLivArea, hp_test_df$BsmtFullBath, hp_test_df$FullBath, hp_test_df$HalfBath, hp_test_df$GarageCars, hp_test_df$StreetScore, hp_test_df$CentralAirScore, hp_test_df$BedroomAbvGr, hp_test_df$KitchenAbvGr, hp_test_df$TotRmsAbvGrd)
+# compute mean
+sp.lm_predicted_mean <- mean(sp.lm_predicted, na.rm = TRUE)
+# replace NA values with mean
+sp.lm_predicted <- ifelse(is.na(sp.lm_predicted) == TRUE, sp.lm_predicted_mean, sp.lm_predicted)
+# transform logSalePrice prediction to SalePrice
+sp.lm_predicted <- (exp(1))^sp.lm_predicted
+# put transformed SalePrice into data frame
+sp.lm_predicted_df <- data.frame(cbind(seq(from = 1461, to = 2919, by = 1), sp.lm_predicted))
+# change column names to Id and SalePrice
+colnames(sp.lm_predicted_df) <- c("Id", "SalePrice")
+# export to .csv for submission
+write.csv(sp.lm_predicted_df, file = "C:/Users/Lelan/Documents/Education/CUNY/DATA605/Spring_2017/Final_Exam/submission_LMR.csv")
+```
+
+The data frame was exported as "submission_LMR.csv" and loaded to my GitHub repo (<https://github.com/Randles-CUNY/data602_final_exam/blob/master/submission_LMR.csv>) as well as Kaggle.com. My Kaggle.com user name is "Leland R" and my score is 0.14116.  
